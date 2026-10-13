@@ -1,100 +1,109 @@
-# opencode-llama-cpp
+# opencode-plugin-llama.cpp
 
-OpenCode plugin for enhanced llama.cpp support with auto-detection and dynamic model discovery.
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+OpenCode **V2** plugin for [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server`: auto-detects a local server, discovers loaded models dynamically, and validates the selected model on every request.
 
 ## Features
 
-- **Auto-detection**: Automatically detects llama.cpp server running on common ports (1234, 8080, 11434)
-- **Dynamic Model Discovery**: Queries llama.cpp's `/v1/models` endpoint to discover available models
-- **Smart Model Formatting**: Automatically formats model names for better readability (e.g., "Qwen3 30B A3B" instead of "qwen/qwen3-30b-a3b")
-- **Organization Owner Extraction**: Extracts and sets `organizationOwner` field from model IDs
-- **Health Check Monitoring**: Verifies llama.cpp server is accessible before attempting operations
-- **Automatic Configuration**: Auto-creates `llama.cpp` provider if detected but not configured
-- **Model Merging**: Intelligently merges discovered models with existing configuration
-- **Comprehensive Caching**: Reduces API calls with intelligent caching system
-- **Error Handling**: Smart error categorization with auto-fix suggestions
-
-## Installation
-
-```bash
-pnpm add opencode-llama-cpp@latest
-```
-
-## Usage
-
-Add the plugin to your `opencode.json`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    "opencode-plugin-llama.cpp@latest"
-  ],
-  "provider": {
-    "llama.cpp": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "llama.cpp (local)",
-      "options": {
-        "baseURL": "http://127.0.0.1:1234/v1"
-      }
-    }
-  }
-}
-```
-
-### Auto-detection
-
-If you don't configure the `llama.cpp` provider, the plugin will automatically detect llama.cpp server if it's running on one of the common ports and create the provider configuration for you.
-
-### Manual Configuration
-
-You can also manually configure the provider with specific models:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    "opencode-plugin-llama.cpp@latest"
-  ],
-  "provider": {
-    "llama.cpp": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "llama.cpp (local)",
-      "options": {
-        "baseURL": "http://127.0.0.1:1234/v1"
-      },
-      "models": {
-        "google/gemma-3n-e4b": {
-          "name": "Gemma 3n-e4b (local)"
-        }
-      }
-    }
-  }
-}
-```
-
-The plugin will automatically discover and add any additional models available in llama.cpp that aren't already configured.
-
-## How It Works
-
-1. On OpenCode startup, the plugin's `config` hook is called
-2. If a `llama.cpp` provider is found, it checks if llama.cpp server is accessible
-3. If not configured, it attempts to auto-detect llama.cpp server on common ports
-4. If accessible, it queries the `/v1/models` endpoint
-5. Discovered models are merged into your configuration
-6. The enhanced configuration is used for the current session
+- **Auto-detection**: detects a running `llama-server` on common ports (1234, 8080, 11434)
+- **Dynamic model discovery**: queries the `/v1/models` endpoint and registers models through the OpenCode provider registry — including models loaded *after* OpenCode starts
+- **Periodic refresh**: re-discovers models on an interval (configurable) so load/unload changes appear without a restart
+- **Model validation**: on each request scoped to `llama.cpp`, checks that the selected model is actually loaded and warns with similar-model suggestions if not
+- **Sensible defaults**: chat models get tool capability, embedding models are marked non-tool; models get readable names (e.g. "Qwen3 30B A3B" instead of `qwen/qwen3-30b-a3b`)
 
 ## Requirements
 
-- OpenCode with plugin support
-- llama.cpp server running locally (default port: 1234)
-- llama.cpp server API accessible at `http://127.0.0.1:1234/v1`
+- OpenCode **v2.0.28** or newer (OpenCode V2 plugin API)
+- A local `llama-server` instance
+
+## Installation
+
+Published package:
+
+```bash
+npm install opencode-plugin-llama.cpp
+```
+
+Then add it to `opencode.json(c)` **as a `plugins` entry** (note: in OpenCode V2 the key is `plugins`, and local paths must point at a *directory*, not a `.ts` file):
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    "opencode-plugin-llama.cpp"
+  ]
+}
+```
+
+Local development checkout:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    "/absolute/path/to/opencode-llama.cpp/src"
+  ]
+}
+```
+
+## Options
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    {
+      "package": "opencode-plugin-llama.cpp",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080", // default: auto-detect (1234, 8080, 11434)
+        "refreshIntervalMs": 60000,          // default: 60s
+        "refreshDisabled": false             // set true to disable periodic refresh
+      }
+    }
+  ]
+}
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `baseURL` | auto-detect | Base URL of the llama.cpp server. Checked in order: 1234, 8080, 11434. |
+| `refreshIntervalMs` | `60000` | How often to re-discover models and reload the provider registry. |
+| `refreshDisabled` | `false` | Disable periodic refresh entirely. |
+
+## Usage
+
+Start your server, e.g.:
+
+```bash
+llama-server -hf MaziyarPanahi/GLM-4.6V-Flash-GGUF:Q6_K --port 8080
+```
+
+Then use any discovered model from OpenCode (select it in the TUI model picker, or):
+
+```bash
+opencode run -m 'llama.cpp/MaziyarPanahi/GLM-4.6V-Flash-GGUF:Q6_K' 'hello'
+```
+
+> Model IDs containing `/` or `:` work fine, but quote them on the CLI.
+
+If you select a model that is not loaded on the server, the plugin logs a warning with the currently available models and close-match suggestions.
+
+## How it works
+
+1. On startup, the plugin's `setup` resolves the server URL (option → auto-detection).
+2. It discovers models from `/v1/models` and registers the `llama.cpp` provider through `ctx.provider.transform` using the OpenAI-compatible protocol.
+3. A `ctx.session.hook("context", ..., { providerID: "llama.cpp" })` validates the selected model against the server's loaded models on each agent request.
+4. An optional timer re-discovers models and calls `ctx.provider.reload()` so registry transforms replay with fresh data.
+5. On unload, the timer and event subscription are cleaned up.
+
+## Development
+
+```bash
+pnpm install
+pnpm run validate   # lint + typecheck + tests
+```
 
 ## License
 
-MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
+MIT — see [LICENSE](LICENSE).
