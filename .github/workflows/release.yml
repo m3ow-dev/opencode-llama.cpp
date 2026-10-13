@@ -24,12 +24,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        # Version comes from packageManager in package.json (pnpm@10.33.0).
         # Pinned to v10: pnpm 11 defaults minimumReleaseAge to 24h, which
         # rejects same-day dependency releases (including our own
         # @opencode/* deps). The lockfile is generated with pnpm 10.
-        with:
-          version: 10
+        uses: pnpm/action-setup@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
