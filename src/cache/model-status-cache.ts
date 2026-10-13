@@ -1,6 +1,5 @@
-import type {CacheStats} from '../types'
-
-// Model Status Cache for reducing API calls
+// Model Status Cache for reducing API calls.
+// Keyed by base URL; falls back to stale data when a refresh fails.
 export class ModelStatusCache {
     private cache = new Map<string, {
         models: string[]
@@ -8,10 +7,12 @@ export class ModelStatusCache {
         ttl: number
     }>()
 
-    private readonly DEFAULT_TTL = 15000 // 15 seconds (reduced for better freshness)
+    private readonly DEFAULT_TTL = 15000 // 15 seconds
     private readonly MAX_CACHE_SIZE = 50 // Prevent memory leaks
+    private readonly MAX_STALE_FACTOR = 5 // Drop entries older than 5x TTL
 
-    // Get cached model status or fetch fresh data
+    // Get cached model status or fetch fresh data.
+    // On fetch failure, falls back to stale cached data if it exists.
     async getModels(baseURL: string, fetchFn: () => Promise<string[]>): Promise<string[]> {
         const now = Date.now()
         const cached = this.cache.get(baseURL)
@@ -21,35 +22,30 @@ export class ModelStatusCache {
             return cached.models
         }
 
-        // Fetch fresh data
         try {
             const models = await fetchFn()
 
-            // Update cache with new data
             this.cache.set(baseURL, {
-                models: [...models], // Create copy to prevent mutations
+                models: [...models], // Copy to prevent mutation of cached data
                 timestamp: now,
                 ttl: this.DEFAULT_TTL
             })
 
-            // Prevent cache from growing too large
             if (this.cache.size > this.MAX_CACHE_SIZE) {
-                this.cleanup()
+                this.cleanup(now)
             }
-
 
             return models
         } catch (error) {
-            // If we have stale cached data, return it as fallback but mark as potentially invalid
             if (cached) {
-                console.warn(`[opencode-llama-cpp] Using stale cache data due to fetch error`, {
+                const age = now - cached.timestamp
+                console.warn('[opencode-llama-cpp] Using stale cache data due to fetch error', {
                     baseURL,
-                    age: now - cached.timestamp,
+                    age,
                     error: error instanceof Error ? error.message : String(error)
                 })
-                // Invalidate cache if it's very old (> 5x TTL)
-                if (now - cached.timestamp > cached.ttl * 5) {
-                    this.invalidate(baseURL)
+                if (age > cached.ttl * this.MAX_STALE_FACTOR) {
+                    this.cache.delete(baseURL)
                 }
                 return cached.models
             }
@@ -57,74 +53,12 @@ export class ModelStatusCache {
         }
     }
 
-    // Invalidate cache for specific URL
-    invalidate(baseURL: string): void {
-        this.cache.delete(baseURL)
-        console.debug(`[opencode-llama-cpp:DEBUG] Invalidated cache entry`, {baseURL})
-    }
-
-    // Invalidate entire cache
-    invalidateAll(): void {
-        const size = this.cache.size
-        this.cache.clear()
-        console.debug(`[opencode-llama-cpp:DEBUG] Cleared entire cache`, {previousSize: size})
-    }
-
-    // Force refresh for specific URL (useful after model changes)
-    async forceRefresh(baseURL: string, fetchFn: () => Promise<string[]>): Promise<string[]> {
-        this.invalidate(baseURL)
-        return this.getModels(baseURL, fetchFn)
-    }
-
-    // Get cache statistics
-    getStats(): CacheStats {
-        const now = Date.now()
-        return {
-            size: this.cache.size,
-            entries: Array.from(this.cache.entries()).map(([baseURL, data]) => ({
-                baseURL,
-                age: now - data.timestamp,
-                modelCount: data.models.length,
-                ttl: data.ttl
-            }))
-        }
-    }
-
-    // Configure TTL for specific use cases
-    setTTL(baseURL: string, ttl: number): void {
-        const cached = this.cache.get(baseURL)
-        if (cached) {
-            cached.ttl = ttl
-            console.debug(`[opencode-llama-cpp:DEBUG] Updated TTL for cache entry`, {baseURL, ttl})
-        }
-    }
-
-    // Check if cache entry exists and is valid
-    isValid(baseURL: string): boolean {
-        const cached = this.cache.get(baseURL)
-        const now = Date.now()
-        return cached !== undefined && (now - cached.timestamp) < cached.ttl
-    }
-
-    // Cleanup old entries to prevent memory leaks
-    private cleanup(): void {
-        const now = Date.now()
-        const toDelete: string[] = []
-
+    // Drop entries older than 5x TTL to prevent memory leaks.
+    private cleanup(now: number): void {
         for (const [baseURL, data] of this.cache.entries()) {
-            // Delete entries older than 5x TTL or if cache is too large
-            if (now - data.timestamp > data.ttl * 5 || this.cache.size > this.MAX_CACHE_SIZE) {
-                toDelete.push(baseURL)
+            if (now - data.timestamp > data.ttl * this.MAX_STALE_FACTOR) {
+                this.cache.delete(baseURL)
             }
-        }
-
-        toDelete.forEach(baseURL => this.cache.delete(baseURL))
-
-        if (toDelete.length > 0) {
-            console.debug(`[opencode-llama-cpp:DEBUG] Cleaned up cache entries`, {
-                deleted: toDelete.length,
-                remaining: this.cache.size
-            })
         }
     }
 }

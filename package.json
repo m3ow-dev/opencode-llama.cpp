@@ -23,7 +23,6 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "build": "pnpm run typecheck && pnpm run test:run",
     "validate": "pnpm run lint && pnpm run typecheck && pnpm run test:run",
-    "validate:config": "node scripts/validate-config.ts",
     "prepublishOnly": "pnpm run build"
   },
   "keywords": [

@@ -1,17 +1,6 @@
 import type {LlamaCppModel} from '../types'
 
 /**
- * Extract owner from model ID (e.g., "qwen" from "qwen/qwen3-30b")
- */
-export function extractModelOwner(modelId: string): string | undefined {
-    const parts = modelId.split('/')
-    if (parts.length > 1) {
-        return parts[0]
-    }
-    return undefined
-}
-
-/**
  * Format model name for display using available metadata
  * Creates readable titles like "Qwen3 30B A3B" instead of "qwen/qwen3-30b-a3b"
  */

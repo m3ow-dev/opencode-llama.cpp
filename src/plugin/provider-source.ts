@@ -1,6 +1,5 @@
 import {Model, Provider} from '@opencode/plugin'
 import {categorizeModel, formatModelName} from '../utils'
-import {discoverLlamaCppModels} from '../utils/llama-cpp-api'
 import type {LlamaCppModel} from '../types'
 
 /**
@@ -67,30 +66,3 @@ export function buildProviderRecord(baseURL: string, models: readonly LlamaCppMo
         models: models.map(toModelInfo),
     }
 }
-
-/**
- * Discover the current llama.cpp model inventory and return the provider source
- * entry for `ctx.provider.transform`. Returns null when llama.cpp is unreachable.
- */
-export async function loadProviderSource(baseURL: string): Promise<{
-    info: Provider.Info
-    models: readonly Model.Info[]
-} | null> {
-    let models: LlamaCppModel[]
-    try {
-        models = await discoverLlamaCppModels(baseURL)
-    } catch {
-        return null
-    }
-
-    if (models.length === 0) {
-        return null
-    }
-
-    return buildProviderRecord(`${baseURL.replace(/\/+$/, '')}/v1`, models)
-}
-
-/**
- * Re-export discovery for callers that only need the raw model list.
- */
-export {discoverLlamaCppModels}
