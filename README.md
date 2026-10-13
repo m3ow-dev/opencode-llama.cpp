@@ -76,16 +76,16 @@ Local development checkout:
 Start your server, e.g.:
 
 ```bash
-llama-server -hf MaziyarPanahi/GLM-4.6V-Flash-GGUF:Q6_K --port 8080
+llama-server -hf <org>/<model>-GGUF:<quant> --port 8080
 ```
 
 Then use any discovered model from OpenCode (select it in the TUI model picker, or):
 
 ```bash
-opencode run -m 'llama.cpp/MaziyarPanahi/GLM-4.6V-Flash-GGUF:Q6_K' 'hello'
+opencode run -m 'llama.cpp/<model-id>' 'hello'
 ```
 
-> Model IDs containing `/` or `:` work fine, but quote them on the CLI.
+> Model IDs containing `/` or `:` work fine, but quote them on the CLI. Use the model ID as reported by your server's `/v1/models` endpoint.
 
 If you select a model that is not loaded on the server, the plugin logs a warning with the currently available models and close-match suggestions.
 
