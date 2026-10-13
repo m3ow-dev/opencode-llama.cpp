@@ -1,0 +1,22 @@
+name: Fix latest dist-tag
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Point latest at 0.3.1
+        run: npm dist-tag add @m3ow-dev/opencode-llama-cpp@0.3.1 latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_SECRET }}
