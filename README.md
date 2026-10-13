@@ -1,4 +1,4 @@
-# opencode-plugin-llama.cpp
+# @m3ow-dev/opencode-llama-cpp
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -22,7 +22,7 @@ OpenCode **V2** plugin for [llama.cpp](https://github.com/ggml-org/llama.cpp) `l
 Published package:
 
 ```bash
-npm install opencode-plugin-llama.cpp
+npm install @m3ow-dev/opencode-llama-cpp
 ```
 
 Then add it to `opencode.json(c)` **as a `plugins` entry** (note: in OpenCode V2 the key is `plugins`, and local paths must point at a *directory*, not a `.ts` file):
@@ -31,7 +31,7 @@ Then add it to `opencode.json(c)` **as a `plugins` entry** (note: in OpenCode V2
 {
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
-    "opencode-plugin-llama.cpp"
+    "@m3ow-dev/opencode-llama-cpp"
   ]
 }
 ```
@@ -54,7 +54,7 @@ Local development checkout:
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
     {
-      "package": "opencode-plugin-llama.cpp",
+      "package": "@m3ow-dev/opencode-llama-cpp",
       "options": {
         "baseURL": "http://127.0.0.1:8080", // default: auto-detect (1234, 8080, 11434)
         "refreshIntervalMs": 60000,          // default: 60s

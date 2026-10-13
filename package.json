@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "opencode-plugin-llama.cpp",
+  "name": "@m3ow-dev/opencode-llama-cpp",
   "version": "0.3.0",
   "description": "OpenCode plugin for enhanced llama.cpp support with auto-detection and dynamic model discovery",
   "type": "module",
